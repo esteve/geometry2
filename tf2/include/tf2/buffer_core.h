@@ -49,6 +49,7 @@
 #include <memory>
 
 #include <tf2/exceptions.h>
+#include <tf2/frame_transformer_interface.h>
 #include <tf2/visibility_control.h>
 
 namespace tf2
@@ -88,7 +89,7 @@ static constexpr Duration BUFFER_CORE_DEFAULT_CACHE_TIME = std::chrono::seconds(
  *
  * All function calls which pass frame ids can potentially throw the exception tf::LookupException
  */
-class BufferCore
+class BufferCore : public FrameTransformerInterface
 {
 public:
   /************* Constants ***********************/
@@ -120,6 +121,22 @@ public:
   bool setTransform(const geometry_msgs::msg::TransformStamped& transform, const std::string & authority, bool is_static = false);
 
   /*********** Accessors *************/
+
+  /** \brief Get the transform between two frames by frame ID.
+   * \sa FrameTransformerInterface
+   */
+  TF2_PUBLIC
+  tf2::Stamped<tf2::Transform>
+    getTransform(const std::string& target_frame, const std::string& source_frame, const tf2::TimePoint& time) const;
+
+  /** \brief Get the transform between two frames by frame ID assuming fixed frame.
+   * \sa FrameTransformerInterface
+   */
+  TF2_PUBLIC
+  tf2::Stamped<tf2::Transform>
+    getTransform(const std::string& target_frame, const tf2::TimePoint& target_time,
+                 const std::string& source_frame, const tf2::TimePoint& source_time,
+                 const std::string& fixed_frame) const;
 
   /** \brief Get the transform between two frames by frame ID.
    * \param target_frame The frame to which data should be transformed
@@ -237,6 +254,26 @@ public:
    */
   TF2_PUBLIC
   std::string allFramesAsString() const;
+
+  /**
+   * \brief Wait for a transform between two frames to become available.
+   * \param target_frame The frame into which to transform.
+   * \param source_frame The frame from which to tranform.
+   * \param time The time at which to transform.
+   * \param timeout Duration after which waiting will be stopped.
+   * \param callback The function to be called when the transform becomes available or a timeout
+   *   occurs. In the case of timeout, an exception will be set on the future.
+   * \return A future to the requested transform. If a timeout occurs an exception will be set on
+   *   the future.
+   */
+  TF2_PUBLIC
+  StampedTransformFuture
+  waitForTransform(
+    const std::string& target_frame,
+    const std::string& source_frame,
+    const tf2::TimePoint& time,
+    const tf2::Duration& timeout,
+    TransformReadyCallback callback);
   
   using TransformableCallback = std::function<void(TransformableRequestHandle request_handle, const std::string& target_frame, const std::string& source_frame,
                                                    TimePoint time, TransformableResult result)>;
