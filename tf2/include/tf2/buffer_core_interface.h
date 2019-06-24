@@ -27,23 +27,21 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TF2__FRAME_TRANSFORMER_INTERFACE_H_
-#define TF2__FRAME_TRANSFORMER_INTERFACE_H_
+#ifndef TF2__BUFFER_CORE_INTERFACE_H_
+#define TF2__BUFFER_CORE_INTERFACE_H_
 
-#include <future>
-#include <functional>
+// #include <future>
+// #include <functional>
 #include <string>
 #include <vector>
 
-#include "tf2/visibility_control.h"
-#include "tf2/LinearMath/Transform.h"
-#include "tf2/transform_datatypes.h"
+#include <geometry_msgs/msg/transform_stamped.hpp>
+
+#include <tf2/time.h>
+#include <tf2/visibility_control.h>
 
 namespace tf2
 {
-
-using StampedTransformFuture = std::shared_future<tf2::Stamped<tf2::Transform>>;
-using TransformReadyCallback = std::function<void(const StampedTransformFuture&)>;
 
 /**
  * \brief Interface for providing coordinate transforms between any two frames in a system.
@@ -51,7 +49,7 @@ using TransformReadyCallback = std::function<void(const StampedTransformFuture&)
  * This class provides a simple abstract interface for looking up relationships between arbitrary
  * frames of a system.
  */
-class FrameTransformerInterface
+class BufferCoreInterface
 {
 public:
   /**
@@ -69,8 +67,8 @@ public:
    * \return The transform between the frames.
    */
   TF2_PUBLIC
-  virtual tf2::Stamped<tf2::Transform>
-  getTransform(
+  virtual geometry_msgs::msg::TransformStamped
+  lookupTransform(
     const std::string& target_frame,
     const std::string& source_frame,
     const tf2::TimePoint& time) const = 0;
@@ -86,8 +84,8 @@ public:
    * \return The transform between the frames.
    */
   TF2_PUBLIC
-  virtual tf2::Stamped<tf2::Transform>
-  getTransform(
+  virtual geometry_msgs::msg::TransformStamped
+  lookupTransform(
     const std::string& target_frame,
     const tf2::TimePoint& target_time,
     const std::string& source_frame,
@@ -109,7 +107,7 @@ public:
     const std::string& target_frame,
     const std::string& source_frame,
     const tf2::TimePoint& time,
-    std::string* error_msg = NULL) const = 0;
+    std::string* error_msg) const = 0;
 
   /**
    * \brief Test if a transform is possible.
@@ -130,36 +128,16 @@ public:
     const std::string& source_frame,
     const tf2::TimePoint& source_time,
     const std::string& fixed_frame,
-    std::string* error_msg = NULL) const = 0;
+    std::string* error_msg) const = 0;
 
   /**
-   * \brief Get frames that exist in the system.
-   */
-  // TF2_PUBLIC
-  // virtual std::vector<std::string>
-  // getFrames() const = 0;
-
-  /**
-   * \brief Wait for a transform between two frames to become available.
-   * \param target_frame The frame into which to transform.
-   * \param source_frame The frame from which to tranform.
-   * \param time The time at which to transform.
-   * \param timeout Duration after which waiting will be stopped.
-   * \param callback The function to be called when the transform becomes available or a timeout
-   *   occurs. In the case of timeout, an exception will be set on the future.
-   * \return A future to the requested transform. If a timeout occurs an exception will be set on
-   *   the future.
+   * \brief Get all frames that exist in the system.
    */
   TF2_PUBLIC
-  virtual StampedTransformFuture
-  waitForTransform(
-    const std::string& target_frame,
-    const std::string& source_frame,
-    const tf2::TimePoint& time,
-    const tf2::Duration& timeout,
-    TransformReadyCallback callback) = 0;
-};  // class FrameTransformerInterface
+  virtual std::vector<std::string>
+  getAllFrames() const = 0;
+};  // class BufferCoreInterface
 
 }  // namespace tf2
 
-#endif // TF2__FRAME_TRANSFORMER_INTERFACE_H_
+#endif // TF2__BUFFER_CORE_INTERFACE_H_

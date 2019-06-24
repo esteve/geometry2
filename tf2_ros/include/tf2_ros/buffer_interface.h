@@ -32,9 +32,12 @@
 #ifndef TF2_ROS_BUFFER_INTERFACE_H
 #define TF2_ROS_BUFFER_INTERFACE_H
 
+#include <functional>
+#include <future>
+
 #include <rclcpp/rclcpp.hpp>
 #include <tf2_ros/visibility_control.h>
-#include <tf2/buffer_core.h>
+#include <tf2/buffer_core_interface.h>
 #include <tf2/transform_datatypes.h>
 #include <tf2/exceptions.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
@@ -43,6 +46,9 @@
 
 namespace tf2_ros
 {
+  using TransformStampedFuture = std::shared_future<geometry_msgs::msg::TransformStamped>;
+  using TransformReadyCallback = std::function<void(const TransformStampedFuture&)>;
+
   inline builtin_interfaces::msg::Time toMsg(const tf2::TimePoint & t)
   {
     std::chrono::nanoseconds ns = \
@@ -69,12 +75,14 @@ namespace tf2_ros
     return (s + std::chrono::duration_cast<std::chrono::duration<double>>(ns)).count();
   }
 
-/** \brief Abstract interface for wrapping tf2::BufferCore in a ROS-based API.
+/** \brief Abstract interface for wrapping tf2::BufferCoreInterface in a ROS-based API.
  * Implementations include tf2_ros::Buffer and tf2_ros::BufferClient.
  */
-class BufferInterface
+class BufferInterface : public virtual tf2::BufferCoreInterface
 {
 public:
+  using tf2::BufferCoreInterface::canTransform;
+  using tf2::BufferCoreInterface::lookupTransform;
 
   /** \brief Get the transform between two frames by frame ID.
    * \param target_frame The frame to which data should be transformed
@@ -286,6 +294,26 @@ public:
     tf2::convert(copy, out);
     return out;
   }
+
+  /**
+   * \brief Wait for a transform between two frames to become available.
+   * \param target_frame The frame into which to transform.
+   * \param source_frame The frame from which to tranform.
+   * \param time The time at which to transform.
+   * \param timeout Duration after which waiting will be stopped.
+   * \param callback The function to be called when the transform becomes available or a timeout
+   *   occurs. In the case of timeout, an exception will be set on the future.
+   * \return A future to the requested transform. If a timeout occurs an exception will be set on
+   *   the future.
+   */
+  TF2_ROS_PUBLIC
+  virtual TransformStampedFuture
+  waitForTransform(
+    const std::string& target_frame,
+    const std::string& source_frame,
+    const tf2::TimePoint& time,
+    const tf2::Duration& timeout,
+    TransformReadyCallback callback) = 0;
 
  }; // class
 

@@ -190,6 +190,42 @@ Buffer::canTransform(const std::string& target_frame, const tf2::TimePoint& targ
   return retval; 
 }
 
+TransformStampedFuture
+Buffer::waitForTransform(const std::string& target_frame, const std::string& source_frame, const tf2::TimePoint& time,
+                 const tf2::Duration& timeout, TransformReadyCallback callback)
+{
+  // TODO(jacobperron): Implement timeout
+  auto promise = std::make_shared<std::promise<geometry_msgs::msg::TransformStamped>>();
+  TransformStampedFuture future(promise->get_future());
+  auto cb_handle = addTransformableCallback([&, promise, callback, future](
+    tf2::TransformableRequestHandle request_handle, const std::string& target_frame,
+    const std::string& source_frame, tf2::TimePoint time, tf2::TransformableResult result)
+    {
+      (void) request_handle;
+
+      if (result == tf2::TransformAvailable) {
+      geometry_msgs::msg::TransformStamped msg_stamped = lookupTransform(target_frame, source_frame, time);
+        promise->set_value(msg_stamped);
+      } else {
+        promise->set_exception(std::make_exception_ptr<tf2::LookupException>(
+            "Failed to transform from " + source_frame + " to " + target_frame));
+      }
+      callback(future);
+    });
+
+  auto handle = addTransformableRequest(cb_handle, target_frame, source_frame, time);
+  if (0 == handle) {
+    // Immediately transformable
+    geometry_msgs::msg::TransformStamped msg_stamped = lookupTransform(target_frame, source_frame, time);
+    promise->set_value(msg_stamped);
+  } else if (0xffffffffffffffffULL == handle) {
+    // Never transformable
+    promise->set_exception(std::make_exception_ptr<tf2::LookupException>(
+          "Failed to transform from " + source_frame + " to " + target_frame));
+  }
+  return future;
+}
+
 
 bool Buffer::getFrames(tf2_msgs::srv::FrameGraph::Request& req, tf2_msgs::srv::FrameGraph::Response& res) 
 {

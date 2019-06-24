@@ -592,44 +592,6 @@ struct TransformAccum
   tf2::Vector3 result_vec;
 };
 
-// We can't use tf2::convert since the definitions are in tf2_geometry_msgs
-static void
-msgToTf2(const geometry_msgs::msg::TransformStamped& in, tf2::Stamped <tf2::Transform>& out)
-{
-  const int64_t stamp = in.header.stamp.sec * 1000000000ull + in.header.stamp.nanosec;
-  const std::chrono::nanoseconds ns(stamp);
-  out.stamp_ = tf2::TimePoint(std::chrono::duration_cast<tf2::Duration>(ns));
-  out.frame_id_ = in.header.frame_id;
-  out.setOrigin(tf2::Vector3(in.transform.translation.x,
-                             in.transform.translation.y,
-                             in.transform.translation.z));
-  out.setRotation(tf2::Quaternion(in.transform.rotation.x,
-                                  in.transform.rotation.y,
-                                  in.transform.rotation.z,
-                                  in.transform.rotation.w));
-}
-
-tf2::Stamped<tf2::Transform>
-  BufferCore::getTransform(const std::string& target_frame, const std::string& source_frame,
-                           const tf2::TimePoint& time) const
-{
-  const auto msg = lookupTransform(target_frame, source_frame, time);
-  tf2::Stamped<tf2::Transform> stamped_tf;
-  tf2::msgToTf2(msg, stamped_tf);
-  return stamped_tf;
-}
-
-tf2::Stamped<tf2::Transform>
-  BufferCore::getTransform(const std::string& target_frame, const tf2::TimePoint& target_time,
-                           const std::string& source_frame, const tf2::TimePoint& source_time,
-                           const std::string& fixed_frame) const
-{
-  const auto msg = lookupTransform(target_frame, target_time, source_frame, source_time, fixed_frame);
-  tf2::Stamped<tf2::Transform> stamped_tf;
-  tf2::msgToTf2(msg, stamped_tf);
-  return stamped_tf;
-}
-
 geometry_msgs::msg::TransformStamped 
   BufferCore::lookupTransform(const std::string& target_frame, const std::string& source_frame,
       const TimePoint& time) const
@@ -966,6 +928,13 @@ void BufferCore::createConnectivityErrorString(CompactFrameID source_frame, Comp
                      "Tf has two or more unconnected trees.");
 }
 
+std::vector<std::string> BufferCore::getAllFrames() const
+{
+  std::vector<std::string> frames;
+  _getFrameStrings(frames);
+  return frames;
+}
+
 std::string BufferCore::allFramesAsString() const
 {
   std::unique_lock<std::mutex> lock(frame_mutex_);
@@ -1248,41 +1217,6 @@ std::string BufferCore::allFramesAsYAML(TimePoint current_time) const
 std::string BufferCore::allFramesAsYAML() const
 {
   return this->allFramesAsYAML(TimePointZero);
-}
-
-tf2::StampedTransformFuture
-  BufferCore::waitForTransform(const std::string& target_frame, const std::string& source_frame,
-                               const tf2::TimePoint& time, const tf2::Duration& timeout,
-                               TransformReadyCallback callback)
-{
-  auto promise = std::make_shared<std::promise<tf2::Stamped<tf2::Transform>>>();
-  tf2::StampedTransformFuture future(promise->get_future());
-  auto cb_handle = addTransformableCallback([&, promise, callback, future](
-    TransformableRequestHandle request_handle, const std::string& target_frame,
-    const std::string& source_frame, TimePoint time, TransformableResult result)
-    {
-      if (result == TransformAvailable) {
-        tf2::Stamped<tf2::Transform> tf_stamped = getTransform(target_frame, source_frame, time);
-        promise->set_value(tf_stamped);
-      } else {
-        promise->set_exception(std::make_exception_ptr<tf2::LookupException>(
-            "Failed to transform from " + source_frame + " to " + target_frame));
-      }
-      callback(future);
-
-    });
-
-  auto handle = addTransformableRequest(cb_handle, target_frame, source_frame, time);
-  if (0 == handle) {
-    // Immediately transformable
-    tf2::Stamped<tf2::Transform> tf_stamped = getTransform(target_frame, source_frame, time);
-    promise->set_value(tf_stamped);
-  } else if (0xffffffffffffffffULL == handle) {
-    // Never transformable
-    promise->set_exception(std::make_exception_ptr<tf2::LookupException>(
-          "Failed to transform from " + source_frame + " to " + target_frame));
-  }
-  return future;
 }
 
 TransformableCallbackHandle BufferCore::addTransformableCallback(const TransformableCallback& cb)

@@ -49,7 +49,7 @@ namespace tf2_ros
    * Stores known frames and offers a ROS service, "tf_frames", which responds to client requests
    * with a response containing a tf2_msgs::FrameGraph representing the relationship of known frames.
    */
-  class Buffer: public BufferInterface, public tf2::BufferCore
+  class Buffer: public virtual BufferInterface, public tf2::BufferCore
   {
   public:
     using tf2::BufferCore::lookupTransform;
@@ -127,8 +127,21 @@ namespace tf2_ros
                    const std::string& source_frame, const tf2::TimePoint& source_time,
                    const std::string& fixed_frame, const tf2::Duration timeout, std::string* errstr = NULL) const override;
 
+   /** \brief Wait for a transform between two frames to become available.
+   * \param target_frame The frame into which to transform.
+   * \param source_frame The frame from which to tranform.
+   * \param time The time at which to transform.
+   * \param timeout Duration after which waiting will be stopped.
+   * \param callback The function to be called when the transform becomes available or a timeout
+   *   occurs. In the case of timeout, an exception will be set on the future.
+   * \return A future to the requested transform. If a timeout occurs an exception will be set on
+   *   the future.
+   */
+    TF2_ROS_PUBLIC
+    virtual TransformStampedFuture
+    waitForTransform(const std::string& target_frame, const std::string& source_frame, const tf2::TimePoint& time,
+                     const tf2::Duration& timeout, TransformReadyCallback callback) override;
 
-    
     
   private:
     bool getFrames(tf2_msgs::srv::FrameGraph::Request& req, tf2_msgs::srv::FrameGraph::Response& res) ;

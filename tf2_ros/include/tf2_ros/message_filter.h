@@ -41,7 +41,8 @@
 #include <message_filters/message_traits.h>
 #include <message_filters/simple_filter.h>
 #include <rclcpp/rclcpp.hpp>
-#include <tf2/frame_transformer_interface.h>
+
+#include <tf2_ros/buffer_interface.h>
 
 #define TF2_ROS_MESSAGEFILTER_DEBUG(fmt, ...) \
   RCUTILS_LOG_DEBUG_NAMED("tf2_ros_message_filter", \
@@ -116,15 +117,15 @@ public:
   /**
    * \brief Constructor
    *
-   * \param frame_transformer The tf2::FrameTransformerInterface this filter should use
+   * \param buffer The tf2_ros::BufferInterface this filter should use
    * \param target_frame The frame this filter should attempt to transform to.  To use multiple frames, pass an empty string here and use the setTargetFrames() function.
    * \param queue_size The number of messages to queue up before throwing away old ones.  0 means infinite (dangerous).
    * \param node The ros2 node to use for logging and clock operations
    */
   MessageFilter(
-    tf2::FrameTransformerInterface & frame_transformer, const std::string & target_frame, uint32_t queue_size,
+    tf2_ros::BufferInterface & buffer, const std::string & target_frame, uint32_t queue_size,
     const rclcpp::Node::SharedPtr & node)
-  : MessageFilter(frame_transformer, target_frame, queue_size, node->get_node_logging_interface(),
+  : MessageFilter(buffer, target_frame, queue_size, node->get_node_logging_interface(),
       node->get_node_clock_interface())
   {
   }
@@ -132,19 +133,19 @@ public:
   /**
    * \brief Constructor
    *
-   * \param frame_transformer The tf2::FrameTransformerInterface this filter should use
+   * \param buffer The tf2_ros::BufferInterface this filter should use
    * \param target_frame The frame this filter should attempt to transform to.  To use multiple frames, pass an empty string here and use the setTargetFrames() function.
    * \param queue_size The number of messages to queue up before throwing away old ones.  0 means infinite (dangerous).
    * \param node_logging The logging interface to use for any log messages
    * \param node_clock The clock interface to use to get the node clock
    */
   MessageFilter(
-    tf2::FrameTransformerInterface & frame_transformer, const std::string & target_frame, uint32_t queue_size,
+    tf2_ros::BufferInterface & buffer, const std::string & target_frame, uint32_t queue_size,
     const rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr & node_logging,
     const rclcpp::node_interfaces::NodeClockInterface::SharedPtr & node_clock)
   : node_logging_(node_logging),
     node_clock_(node_clock),
-    frame_transformer_(frame_transformer),
+    buffer_(buffer),
     queue_size_(queue_size)
   {
     init();
@@ -155,16 +156,16 @@ public:
    * \brief Constructor
    *
    * \param f The filter to connect this filter's input to.  Often will be a message_filters::Subscriber.
-   * \param frame_transformer The tf2::FrameTransformerInterface this filter should use
+   * \param buffer The tf2_ros::BufferInterface this filter should use
    * \param target_frame The frame this filter should attempt to transform to.  To use multiple frames, pass an empty string here and use the setTargetFrames() function.
    * \param queue_size The number of messages to queue up before throwing away old ones.  0 means infinite (dangerous).
    * \param node The ros2 node to use for logging and clock operations
    */
   template<class F>
   MessageFilter(
-    F & f, tf2::FrameTransformerInterface & frame_transformer, const std::string & target_frame, uint32_t queue_size,
+    F & f, tf2_ros::BufferInterface & buffer, const std::string & target_frame, uint32_t queue_size,
     const rclcpp::Node::SharedPtr & node)
-  : MessageFilter(f, frame_transformer, target_frame, queue_size, node->get_node_logging_interface(),
+  : MessageFilter(f, buffer, target_frame, queue_size, node->get_node_logging_interface(),
       node->get_node_clock_interface())
   {
   }
@@ -173,7 +174,7 @@ public:
    * \brief Constructor
    *
    * \param f The filter to connect this filter's input to.  Often will be a message_filters::Subscriber.
-   * \param frame_transformer The tf2::FrameTransformerInterface this filter should use
+   * \param buffer The tf2_ros::BufferInterface this filter should use
    * \param target_frame The frame this filter should attempt to transform to.  To use multiple frames, pass an empty string here and use the setTargetFrames() function.
    * \param queue_size The number of messages to queue up before throwing away old ones.  0 means infinite (dangerous).
    * \param node_logging The logging interface to use for any log messages
@@ -181,12 +182,12 @@ public:
    */
   template<class F>
   MessageFilter(
-    F & f, tf2::FrameTransformerInterface & frame_transformer, const std::string & target_frame, uint32_t queue_size,
+    F & f, tf2_ros::BufferInterface & buffer, const std::string & target_frame, uint32_t queue_size,
     const rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr & node_logging,
     const rclcpp::node_interfaces::NodeClockInterface::SharedPtr & node_clock)
   : node_logging_(node_logging),
     node_clock_(node_clock),
-    frame_transformer_(frame_transformer),
+    buffer_(buffer),
     queue_size_(queue_size)
   {
     init();
@@ -315,7 +316,7 @@ public:
       V_string::iterator end = target_frames_copy.end();
       for (; it != end; ++it) {
         const std::string & target_frame = *it;
-        auto future = frame_transformer_.waitForTransform(
+        auto future = buffer_.waitForTransform(
             target_frame,
             frame_id,
             tf2::timeFromSec(stamp.seconds()),
@@ -340,7 +341,7 @@ public:
         }
 
         if (time_tolerance_.nanoseconds()) {
-          future = frame_transformer_.waitForTransform(
+          future = buffer_.waitForTransform(
               target_frame,
               frame_id,
               tf2::timeFromSec((stamp + time_tolerance_).seconds()),
@@ -454,7 +455,7 @@ private:
     expected_success_count_ = 1;
   }
 
-  void transformReadyCallback(const tf2::StampedTransformFuture& future, const uint64_t handle)
+  void transformReadyCallback(const tf2_ros::TransformStampedFuture& future, const uint64_t handle)
   {
     namespace mt = message_filters::message_traits;
 
@@ -500,14 +501,14 @@ private:
       typename V_string::iterator end = target_frames_.end();
       for (; it != end; ++it) {
         const std::string & target = *it;
-        if (!frame_transformer_.canTransform(target, frame_id, tf2::timeFromSec(stamp.seconds()))) {
+        if (!buffer_.canTransform(target, frame_id, tf2::timeFromSec(stamp.seconds()), NULL)) {
           can_transform = false;
           break;
         }
 
         if (time_tolerance_.nanoseconds()) {
-          if (!frame_transformer_.canTransform(target, frame_id,
-            tf2::timeFromSec((stamp + time_tolerance_).seconds())))
+          if (!buffer_.canTransform(target, frame_id,
+            tf2::timeFromSec((stamp + time_tolerance_).seconds()), NULL))
           {
             can_transform = false;
             break;
@@ -664,7 +665,7 @@ private:
   ///< The node clock interface to use to get the clock to use
   const rclcpp::node_interfaces::NodeClockInterface::SharedPtr node_clock_;
   ///< The Transformer used to determine if transformation data is available
-  tf2::FrameTransformerInterface & frame_transformer_;
+  tf2_ros::BufferInterface & buffer_;
   ///< The frames we need to be able to transform to before a message is ready
   V_string target_frames_;
   std::string target_frames_string_;
