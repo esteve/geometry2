@@ -27,8 +27,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <exception>
 #include <chrono>
+#include <exception>
+#include <future>
 #include <gtest/gtest.h>
 #include <tf2_ros/transform_listener.h>
 #include <rclcpp/rclcpp.hpp>
@@ -70,6 +71,95 @@ TEST(test_buffer, can_transform_valid_transform)
   EXPECT_DOUBLE_EQ(transform.transform.translation.x, output.transform.translation.x);
   EXPECT_DOUBLE_EQ(transform.transform.translation.y, output.transform.translation.y);
   EXPECT_DOUBLE_EQ(transform.transform.translation.z, output.transform.translation.z);
+}
+
+TEST(test_buffer, wait_for_transform_valid)
+{
+  rclcpp::Clock::SharedPtr clock = std::make_shared<rclcpp::Clock>(RCL_SYSTEM_TIME);
+  tf2_ros::Buffer buffer(clock);
+
+  rclcpp::Time rclcpp_time = clock->now();
+  tf2::TimePoint tf2_time(std::chrono::nanoseconds(rclcpp_time.nanoseconds()));
+
+  geometry_msgs::msg::TransformStamped transform_callback_result;
+  auto future = buffer.waitForTransform(
+    "foo",
+    "bar",
+    tf2_time, tf2::durationFromSec(1.0),
+    [&transform_callback_result](const tf2_ros::TransformStampedFuture & future)
+    {
+      transform_callback_result = future.get();
+    });
+
+  geometry_msgs::msg::TransformStamped transform;
+  transform.header.frame_id = "foo";
+  transform.header.stamp = builtin_interfaces::msg::Time(rclcpp_time);
+  transform.child_frame_id = "bar";
+  transform.transform.translation.x = 1.0;
+  transform.transform.translation.y = 2.0;
+  transform.transform.translation.z = 3.0;
+  transform.transform.rotation.w = 1.0;
+  transform.transform.rotation.x = 0.0;
+  transform.transform.rotation.y = 0.0;
+  transform.transform.rotation.z = 0.0;
+
+  EXPECT_TRUE(buffer.setTransform(transform, "unittest"));
+
+  EXPECT_TRUE(buffer.canTransform("bar", "foo", tf2_time));
+  auto status = future.wait_for(std::chrono::seconds(1));
+  EXPECT_EQ(status, std::future_status::ready);
+
+  auto transform_result = future.get();
+  EXPECT_STREQ(transform.child_frame_id.c_str(), transform_result.child_frame_id.c_str());
+  EXPECT_STREQ(transform.child_frame_id.c_str(), transform_callback_result.child_frame_id.c_str());
+  EXPECT_DOUBLE_EQ(transform.transform.translation.x, transform_result.transform.translation.x);
+  EXPECT_DOUBLE_EQ(transform.transform.translation.y, transform_result.transform.translation.y);
+  EXPECT_DOUBLE_EQ(transform.transform.translation.z, transform_result.transform.translation.z);
+  EXPECT_DOUBLE_EQ(transform.transform.translation.x, transform_callback_result.transform.translation.x);
+  EXPECT_DOUBLE_EQ(transform.transform.translation.y, transform_callback_result.transform.translation.y);
+  EXPECT_DOUBLE_EQ(transform.transform.translation.z, transform_callback_result.transform.translation.z);
+}
+
+TEST(test_buffer, wait_for_transform_timeout)
+{
+  rclcpp::Clock::SharedPtr clock = std::make_shared<rclcpp::Clock>(RCL_SYSTEM_TIME);
+  tf2_ros::Buffer buffer(clock);
+
+  rclcpp::Time time_start = clock->now();
+  tf2::TimePoint tf2_time(std::chrono::nanoseconds(time_start.nanoseconds()));
+
+  bool callback_timeout = false;
+  auto future = buffer.waitForTransform(
+    "foo",
+    "bar",
+    tf2_time, tf2::durationFromSec(1.0),
+    [&callback_timeout](const tf2_ros::TransformStampedFuture & future)
+    {
+      try {
+        // Expect this to throw an exception due to timeout
+        future.get();
+      } catch (...) {
+        callback_timeout = true;
+      }
+    });
+
+  // Set some irrelevant transforms for a couple seconds
+  geometry_msgs::msg::TransformStamped transform;
+  transform.transform.rotation.w = 1.0;
+  rclcpp::Time time_now = clock->now();
+  auto status = future.wait_for(std::chrono::seconds(0));
+  while ((time_now - time_start).seconds() < 2.0 && std::future_status::ready != status) {
+    transform.header.frame_id = "test";
+    transform.header.stamp = builtin_interfaces::msg::Time(time_now);
+    transform.child_frame_id = "baz";
+    EXPECT_TRUE(buffer.setTransform(transform, "unittest"));
+    status = future.wait_for(std::chrono::milliseconds(100));
+    time_now = clock->now();
+  }
+
+  EXPECT_FALSE(buffer.canTransform("bar", "foo", tf2_time));
+  EXPECT_EQ(status, std::future_status::timeout);
+  EXPECT_TRUE(callback_timeout);
 }
 
 int main(int argc, char **argv){
