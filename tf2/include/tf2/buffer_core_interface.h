@@ -30,8 +30,6 @@
 #ifndef TF2__BUFFER_CORE_INTERFACE_H_
 #define TF2__BUFFER_CORE_INTERFACE_H_
 
-// #include <future>
-// #include <functional>
 #include <string>
 #include <vector>
 
