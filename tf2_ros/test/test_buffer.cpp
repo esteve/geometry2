@@ -31,11 +31,63 @@
 #include <exception>
 #include <future>
 #include <gtest/gtest.h>
+#include <tf2_ros/create_timer_interface.h>
 #include <tf2_ros/transform_listener.h>
 #include <rclcpp/rclcpp.hpp>
 
 
 using namespace tf2;
+
+class MockCreateTimer : public tf2_ros::CreateTimerInterface
+{
+public:
+  MockCreateTimer()
+  : timer_handle_index_(0)
+  {
+  }
+
+  tf2_ros::TimerHandle
+  createTimer(
+    rclcpp::Clock::SharedPtr clock,
+    const tf2::Duration & period,
+    tf2_ros::TimerCallbackType callback)
+  {
+    (void) clock;
+    (void) period;
+    const auto timer_handle = timer_handle_index_++;
+    timer_to_callback_map_[timer_handle] = callback;
+    return timer_handle;
+  }
+
+  void
+  cancel(const tf2_ros::TimerHandle & timer_handle)
+  {
+    (void) timer_handle;
+  }
+
+  void
+  reset(const tf2_ros::TimerHandle & timer_handle)
+  {
+    (void) timer_handle;
+  }
+
+  void
+  remove(const tf2_ros::TimerHandle & timer_handle)
+  {
+    timer_to_callback_map_.erase(timer_handle);
+  }
+
+  void
+  execute_timers()
+  {
+    for (const auto elem : timer_to_callback_map_) {
+      elem.second(elem.first);
+    }
+  }
+
+  tf2_ros::TimerHandle timer_handle_index_;
+  std::unordered_map<tf2_ros::TimerHandle, tf2_ros::TimerCallbackType> timer_to_callback_map_;
+};
 
 TEST(test_buffer, construct_with_null_clock)
 {
@@ -77,6 +129,8 @@ TEST(test_buffer, wait_for_transform_valid)
 {
   rclcpp::Clock::SharedPtr clock = std::make_shared<rclcpp::Clock>(RCL_SYSTEM_TIME);
   tf2_ros::Buffer buffer(clock);
+  auto mock_create_timer = std::make_shared<MockCreateTimer>();
+  buffer.setCreateTimerInterface(mock_create_timer);
 
   rclcpp::Time rclcpp_time = clock->now();
   tf2::TimePoint tf2_time(std::chrono::nanoseconds(rclcpp_time.nanoseconds()));
@@ -106,7 +160,7 @@ TEST(test_buffer, wait_for_transform_valid)
   EXPECT_TRUE(buffer.setTransform(transform, "unittest"));
 
   EXPECT_TRUE(buffer.canTransform("bar", "foo", tf2_time));
-  auto status = future.wait_for(std::chrono::seconds(1));
+  const auto status = future.wait_for(std::chrono::seconds(1));
   EXPECT_EQ(status, std::future_status::ready);
 
   auto transform_result = future.get();
@@ -118,12 +172,17 @@ TEST(test_buffer, wait_for_transform_valid)
   EXPECT_DOUBLE_EQ(transform.transform.translation.x, transform_callback_result.transform.translation.x);
   EXPECT_DOUBLE_EQ(transform.transform.translation.y, transform_callback_result.transform.translation.y);
   EXPECT_DOUBLE_EQ(transform.transform.translation.z, transform_callback_result.transform.translation.z);
+
+  // Expect there to be exactly one timer
+  EXPECT_EQ(mock_create_timer->timer_to_callback_map_.size(), 1u);
 }
 
 TEST(test_buffer, wait_for_transform_timeout)
 {
   rclcpp::Clock::SharedPtr clock = std::make_shared<rclcpp::Clock>(RCL_SYSTEM_TIME);
   tf2_ros::Buffer buffer(clock);
+  auto mock_create_timer = std::make_shared<MockCreateTimer>();
+  buffer.setCreateTimerInterface(mock_create_timer);
 
   rclcpp::Time time_start = clock->now();
   tf2::TimePoint tf2_time(std::chrono::nanoseconds(time_start.nanoseconds()));
@@ -143,22 +202,23 @@ TEST(test_buffer, wait_for_transform_timeout)
       }
     });
 
-  // Set some irrelevant transforms for a couple seconds
+  // Set an irrelevant transform
   geometry_msgs::msg::TransformStamped transform;
+  transform.header.frame_id = "test";
+  transform.header.stamp = builtin_interfaces::msg::Time(clock->now());
+  transform.child_frame_id = "baz";
   transform.transform.rotation.w = 1.0;
-  rclcpp::Time time_now = clock->now();
-  auto status = future.wait_for(std::chrono::seconds(0));
-  while ((time_now - time_start).seconds() < 2.0 && std::future_status::ready != status) {
-    transform.header.frame_id = "test";
-    transform.header.stamp = builtin_interfaces::msg::Time(time_now);
-    transform.child_frame_id = "baz";
-    EXPECT_TRUE(buffer.setTransform(transform, "unittest"));
-    status = future.wait_for(std::chrono::milliseconds(100));
-    time_now = clock->now();
-  }
+  EXPECT_TRUE(buffer.setTransform(transform, "unittest"));
+
+  auto status = future.wait_for(std::chrono::milliseconds(1));
+  EXPECT_EQ(status, std::future_status::timeout);
+
+  // Fake a time out
+  mock_create_timer->execute_timers();
 
   EXPECT_FALSE(buffer.canTransform("bar", "foo", tf2_time));
-  EXPECT_EQ(status, std::future_status::timeout);
+  status = future.wait_for(std::chrono::milliseconds(1));
+  EXPECT_EQ(status, std::future_status::ready);
   EXPECT_TRUE(callback_timeout);
 }
 

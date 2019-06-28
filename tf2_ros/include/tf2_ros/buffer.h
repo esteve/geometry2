@@ -32,7 +32,12 @@
 #ifndef TF2_ROS_BUFFER_H
 #define TF2_ROS_BUFFER_H
 
+#include <memory>
+#include <mutex>
+#include <unordered_map>
+
 #include <tf2_ros/buffer_interface.h>
+#include <tf2_ros/create_timer_interface.h>
 #include <tf2_ros/visibility_control.h>
 #include <tf2/buffer_core.h>
 #include <tf2_msgs/srv/frame_graph.hpp>
@@ -142,8 +147,19 @@ namespace tf2_ros
     waitForTransform(const std::string& target_frame, const std::string& source_frame, const tf2::TimePoint& time,
                      const tf2::Duration& timeout, TransformReadyCallback callback) override;
 
+    TF2_ROS_PUBLIC
+    inline void
+    setCreateTimerInterface(CreateTimerInterface::SharedPtr create_timer_interface)
+    {
+      timer_interface_ = create_timer_interface;
+    }
     
   private:
+    void timerCallback(const TimerHandle & timer_handle,
+                       std::shared_ptr<std::promise<geometry_msgs::msg::TransformStamped>> promise,
+                       TransformStampedFuture future,
+                       TransformReadyCallback callback);
+
     bool getFrames(tf2_msgs::srv::FrameGraph::Request& req, tf2_msgs::srv::FrameGraph::Response& res) ;
 
     void onTimeJump(const rcl_time_jump_t & jump);
@@ -156,6 +172,15 @@ namespace tf2_ros
 
     /// \brief A clock to use for time and sleeping
     rclcpp::Clock::SharedPtr clock_;
+
+    /// \brief Interface for creating timers
+    CreateTimerInterface::SharedPtr timer_interface_;
+
+    /// \brief A map from active timers to BufferCore request handles
+    std::unordered_map<TimerHandle, tf2::TransformableRequestHandle> timer_to_request_map_;
+
+    /// \brief A mutex on the timer_to_request_map_ data
+    std::mutex timer_to_request_map_mutex_;
 
     /// \brief Reference to a jump handler registered to the clock
     rclcpp::JumpHandler::SharedPtr jump_handler_;
