@@ -42,7 +42,7 @@
 #include <message_filters/simple_filter.h>
 #include <rclcpp/rclcpp.hpp>
 
-#include <tf2_ros/buffer_interface.h>
+#include <tf2_ros/buffer.h>
 
 #define TF2_ROS_MESSAGEFILTER_DEBUG(fmt, ...) \
   RCUTILS_LOG_DEBUG_NAMED("tf2_ros_message_filter", \
@@ -100,7 +100,7 @@ public:
    tf_filter.registerCallback(&MyClass::myCallback, this);
  \endverbatim
  */
-template<class M>
+template<class M, class BufferT = tf2_ros::Buffer>
 class MessageFilter : public MessageFilterBase, public message_filters::SimpleFilter<M>
 {
 public:
@@ -117,30 +117,34 @@ public:
   /**
    * \brief Constructor
    *
-   * \param buffer The tf2_ros::BufferInterface this filter should use
+   * \param buffer The buffer this filter should use
    * \param target_frame The frame this filter should attempt to transform to.  To use multiple frames, pass an empty string here and use the setTargetFrames() function.
    * \param queue_size The number of messages to queue up before throwing away old ones.  0 means infinite (dangerous).
    * \param node The ros2 node to use for logging and clock operations
    */
   MessageFilter(
-    tf2_ros::BufferInterface & buffer, const std::string & target_frame, uint32_t queue_size,
+    BufferT & buffer, const std::string & target_frame, uint32_t queue_size,
     const rclcpp::Node::SharedPtr & node)
   : MessageFilter(buffer, target_frame, queue_size, node->get_node_logging_interface(),
       node->get_node_clock_interface())
   {
+    static_assert(std::is_base_of<tf2::BufferCoreInterface, BufferT>::value,
+                  "Buffer type must implement tf2::BufferCoreInterface");
+    static_assert(std::is_base_of<tf2_ros::AsyncBufferInterface, BufferT>::value,
+                  "Buffer type must implement tf2_ros::AsyncBufferInterface");
   }
 
   /**
    * \brief Constructor
    *
-   * \param buffer The tf2_ros::BufferInterface this filter should use
+   * \param buffer The buffer this filter should use
    * \param target_frame The frame this filter should attempt to transform to.  To use multiple frames, pass an empty string here and use the setTargetFrames() function.
    * \param queue_size The number of messages to queue up before throwing away old ones.  0 means infinite (dangerous).
    * \param node_logging The logging interface to use for any log messages
    * \param node_clock The clock interface to use to get the node clock
    */
   MessageFilter(
-    tf2_ros::BufferInterface & buffer, const std::string & target_frame, uint32_t queue_size,
+    BufferT & buffer, const std::string & target_frame, uint32_t queue_size,
     const rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr & node_logging,
     const rclcpp::node_interfaces::NodeClockInterface::SharedPtr & node_clock)
   : node_logging_(node_logging),
@@ -156,14 +160,14 @@ public:
    * \brief Constructor
    *
    * \param f The filter to connect this filter's input to.  Often will be a message_filters::Subscriber.
-   * \param buffer The tf2_ros::BufferInterface this filter should use
+   * \param buffer The buffer this filter should use
    * \param target_frame The frame this filter should attempt to transform to.  To use multiple frames, pass an empty string here and use the setTargetFrames() function.
    * \param queue_size The number of messages to queue up before throwing away old ones.  0 means infinite (dangerous).
    * \param node The ros2 node to use for logging and clock operations
    */
   template<class F>
   MessageFilter(
-    F & f, tf2_ros::BufferInterface & buffer, const std::string & target_frame, uint32_t queue_size,
+    F & f, BufferT & buffer, const std::string & target_frame, uint32_t queue_size,
     const rclcpp::Node::SharedPtr & node)
   : MessageFilter(f, buffer, target_frame, queue_size, node->get_node_logging_interface(),
       node->get_node_clock_interface())
@@ -174,7 +178,7 @@ public:
    * \brief Constructor
    *
    * \param f The filter to connect this filter's input to.  Often will be a message_filters::Subscriber.
-   * \param buffer The tf2_ros::BufferInterface this filter should use
+   * \param buffer The buffer this filter should use
    * \param target_frame The frame this filter should attempt to transform to.  To use multiple frames, pass an empty string here and use the setTargetFrames() function.
    * \param queue_size The number of messages to queue up before throwing away old ones.  0 means infinite (dangerous).
    * \param node_logging The logging interface to use for any log messages
@@ -182,7 +186,7 @@ public:
    */
   template<class F>
   MessageFilter(
-    F & f, tf2_ros::BufferInterface & buffer, const std::string & target_frame, uint32_t queue_size,
+    F & f, BufferT & buffer, const std::string & target_frame, uint32_t queue_size,
     const rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr & node_logging,
     const rclcpp::node_interfaces::NodeClockInterface::SharedPtr & node_clock)
   : node_logging_(node_logging),
@@ -665,7 +669,7 @@ private:
   ///< The node clock interface to use to get the clock to use
   const rclcpp::node_interfaces::NodeClockInterface::SharedPtr node_clock_;
   ///< The Transformer used to determine if transformation data is available
-  tf2_ros::BufferInterface & buffer_;
+  BufferT & buffer_;
   ///< The frames we need to be able to transform to before a message is ready
   V_string target_frames_;
   std::string target_frames_string_;

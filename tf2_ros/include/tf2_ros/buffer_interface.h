@@ -295,26 +295,6 @@ public:
     return out;
   }
 
-  /**
-   * \brief Wait for a transform between two frames to become available.
-   * \param target_frame The frame into which to transform.
-   * \param source_frame The frame from which to tranform.
-   * \param time The time at which to transform.
-   * \param timeout Duration after which waiting will be stopped.
-   * \param callback The function to be called when the transform becomes available or a timeout
-   *   occurs. In the case of timeout, an exception will be set on the future.
-   * \return A future to the requested transform. If a timeout occurs an exception will be set on
-   *   the future.
-   */
-  TF2_ROS_PUBLIC
-  virtual TransformStampedFuture
-  waitForTransform(
-    const std::string& target_frame,
-    const std::string& source_frame,
-    const tf2::TimePoint& time,
-    const tf2::Duration& timeout,
-    TransformReadyCallback callback) = 0;
-
  }; // class
 
 

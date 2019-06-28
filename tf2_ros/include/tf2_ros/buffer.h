@@ -36,6 +36,7 @@
 #include <mutex>
 #include <unordered_map>
 
+#include <tf2_ros/async_buffer_interface.h>
 #include <tf2_ros/buffer_interface.h>
 #include <tf2_ros/create_timer_interface.h>
 #include <tf2_ros/visibility_control.h>
@@ -54,7 +55,7 @@ namespace tf2_ros
    * Stores known frames and offers a ROS service, "tf_frames", which responds to client requests
    * with a response containing a tf2_msgs::FrameGraph representing the relationship of known frames.
    */
-  class Buffer: public virtual BufferInterface, public tf2::BufferCore
+  class Buffer: public virtual BufferInterface, public virtual AsyncBufferInterface, public tf2::BufferCore
   {
   public:
     using tf2::BufferCore::lookupTransform;
