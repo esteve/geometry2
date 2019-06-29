@@ -225,7 +225,7 @@ public:
   /** \brief Get all frames that exist in the system.
    */
   TF2_PUBLIC
-  std::vector<std::string> getAllFrames() const override;
+  std::vector<std::string> getAllFrameNames() const override;
 
   /** \brief A way to see what frames have been cached in yaml format
    * Useful for debugging tools

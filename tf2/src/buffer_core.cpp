@@ -928,7 +928,7 @@ void BufferCore::createConnectivityErrorString(CompactFrameID source_frame, Comp
                      "Tf has two or more unconnected trees.");
 }
 
-std::vector<std::string> BufferCore::getAllFrames() const
+std::vector<std::string> BufferCore::getAllFrameNames() const
 {
   std::vector<std::string> frames;
   _getFrameStrings(frames);

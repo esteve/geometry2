@@ -140,8 +140,8 @@ namespace tf2_ros
    * \param timeout Duration after which waiting will be stopped.
    * \param callback The function to be called when the transform becomes available or a timeout
    *   occurs. In the case of timeout, an exception will be set on the future.
-   * \return A future to the requested transform. If a timeout occurs an exception will be set on
-   *   the future.
+   * \return A future to the requested transform. If a timeout occurs a `tf2::LookupException`
+   *   will be set on the future.
    */
     TF2_ROS_PUBLIC
     virtual TransformStampedFuture

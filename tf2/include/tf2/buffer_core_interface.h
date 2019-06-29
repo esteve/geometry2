@@ -133,7 +133,7 @@ public:
    */
   TF2_PUBLIC
   virtual std::vector<std::string>
-  getAllFrames() const = 0;
+  getAllFrameNames() const = 0;
 };  // class BufferCoreInterface
 
 }  // namespace tf2
