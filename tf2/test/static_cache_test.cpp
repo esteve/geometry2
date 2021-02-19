@@ -1,10 +1,10 @@
 /*
  * Copyright (c) 2008, Willow Garage, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
@@ -13,7 +13,7 @@
  *     * Neither the name of the Willow Garage, Inc. nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -36,7 +36,7 @@
 using namespace tf2;
 
 
-void setIdentity(TransformStorage& stor)
+void setIdentity(TransformStorage & stor)
 {
   stor.translation_.setValue(0.0, 0.0, 0.0);
   stor.rotation_.setValue(0.0, 0.0, 0.0, 1.0);
@@ -45,24 +45,23 @@ void setIdentity(TransformStorage& stor)
 TEST(StaticCache, Repeatability)
 {
   unsigned int runs = 100;
-  
-  tf2::StaticCache  cache;
+
+  tf2::StaticCache cache;
 
   TransformStorage stor;
   setIdentity(stor);
-  
-  for ( uint64_t i = 1; i < runs ; i++ )
-  {
+
+  for (uint64_t i = 1; i < runs; i++) {
     stor.frame_id_ = CompactFrameID(i);
     stor.stamp_ = TimePoint(std::chrono::nanoseconds(i));
-    
+
     cache.insertData(stor);
 
-    
+
     cache.getData(TimePoint(std::chrono::nanoseconds(i)), stor);
     EXPECT_EQ(stor.frame_id_, i);
     EXPECT_EQ(stor.stamp_, TimePoint(std::chrono::nanoseconds(i)));
-    
+
   }
 }
 
@@ -82,7 +81,7 @@ TEST(StaticCache, DuplicateEntries)
 
 
   cache.getData(TimePoint(std::chrono::nanoseconds(1)), stor);
-  
+
   //printf(" stor is %f\n", stor.transform.translation.x);
   EXPECT_TRUE(!std::isnan(stor.translation_.x()));
   EXPECT_TRUE(!std::isnan(stor.translation_.y()));
@@ -93,7 +92,8 @@ TEST(StaticCache, DuplicateEntries)
   EXPECT_TRUE(!std::isnan(stor.rotation_.w()));
 }
 
-int main(int argc, char **argv){
+int main(int argc, char ** argv)
+{
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

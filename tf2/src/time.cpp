@@ -38,7 +38,7 @@
 
 using namespace tf2;
 
-std::string tf2::displayTimePoint(const TimePoint& stamp)
+std::string tf2::displayTimePoint(const TimePoint & stamp)
 {
   const char * format_str = "%.6f";
   double current_time = timeToSec(stamp);

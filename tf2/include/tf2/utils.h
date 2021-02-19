@@ -20,7 +20,8 @@
 #include <tf2/impl/utils.h>
 #include <tf2/visibility_control.h>
 
-namespace tf2 {
+namespace tf2
+{
 /** Return the yaw, pitch, roll of anything that can be converted to a tf2::Quaternion
  * The conventions are the usual ROS ones defined in tf2/LineMath/Matrix3x3.h
  * \param a the object to get data from (it represents a rotation/quaternion)
@@ -28,12 +29,12 @@ namespace tf2 {
  * \param pitch pitch
  * \param roll roll
  */
-template <class A>
-  void getEulerYPR(const A& a, double& yaw, double& pitch, double& roll)
-  {
-    tf2::Quaternion q = impl::toQuaternion(a);
-    impl::getEulerYPR(q, yaw, pitch, roll);
-  }
+template<class A>
+void getEulerYPR(const A & a, double & yaw, double & pitch, double & roll)
+{
+  tf2::Quaternion q = impl::toQuaternion(a);
+  impl::getEulerYPR(q, yaw, pitch, roll);
+}
 
 /** Return the yaw of anything that can be converted to a tf2::Quaternion
  * The conventions are the usual ROS ones defined in tf2/LineMath/Matrix3x3.h
@@ -42,25 +43,25 @@ template <class A>
  * \param a the object to get data from (it represents a rotation/quaternion)
  * \param yaw yaw
  */
-template <class A>
-  double getYaw(const A& a)
-  {
-    tf2::Quaternion q = impl::toQuaternion(a);
-    return impl::getYaw(q);
-  }
+template<class A>
+double getYaw(const A & a)
+{
+  tf2::Quaternion q = impl::toQuaternion(a);
+  return impl::getYaw(q);
+}
 
 /** Return the identity for any type that can be converted to a tf2::Transform
  * \return an object of class A that is an identity transform
  */
-template <class A>
-  A getTransformIdentity()
-  {
-    tf2::Transform t;
-    t.setIdentity();
-    A a;
-    convert(t, a);
-    return a;
-  }
+template<class A>
+A getTransformIdentity()
+{
+  tf2::Transform t;
+  t.setIdentity();
+  A a;
+  convert(t, a);
+  return a;
+}
 
 }
 

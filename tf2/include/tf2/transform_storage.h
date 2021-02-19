@@ -42,7 +42,6 @@ namespace tf2
 {
 
 
-
 typedef uint32_t CompactFrameID;
 
 /** \brief Storage for transforms and their parent */
@@ -52,17 +51,18 @@ public:
   TF2_PUBLIC
   TransformStorage();
   TF2_PUBLIC
-  TransformStorage(const TimePoint& stamp, const Quaternion& q, const Vector3& t, CompactFrameID frame_id,
-                   CompactFrameID child_frame_id);
+  TransformStorage(
+    const TimePoint & stamp, const Quaternion & q, const Vector3 & t, CompactFrameID frame_id,
+    CompactFrameID child_frame_id);
 
   TF2_PUBLIC
-  TransformStorage(const TransformStorage& rhs)
+  TransformStorage(const TransformStorage & rhs)
   {
     *this = rhs;
   }
 
   TF2_PUBLIC
-  TransformStorage& operator=(const TransformStorage& rhs)
+  TransformStorage & operator=(const TransformStorage & rhs)
   {
 #if 01
     rotation_ = rhs.rotation_;
